@@ -1,1 +1,4 @@
 .vagrant/
+ppp
+*.o
+*.s
