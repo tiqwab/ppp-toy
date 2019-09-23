@@ -38,6 +38,13 @@ struct config_request {
     char *options;
 };
 
+struct terminate_request {
+    u_int8_t code;
+    identifier id;
+    u_int16_t pad_len;
+    char *data;
+};
+
 // identifier generate_id() {
 //     static identifier id = 0x0;
 //     return ++id;
@@ -84,9 +91,19 @@ int process_lcp_configure_request(struct config_request *req) {
 /*
  * Return 0 if success, otherwise -1.
  */
+int process_lcp_terminate_request(struct terminate_request *req) {
+    fprintf(stdout, "This is Terminate-Request. code=%d, id=%d, length=%d\n",
+            req->code, req->id, LCP_LENGTH(req));
+    return 0;
+}
+
+/*
+ * Return 0 if success, otherwise -1.
+ */
 int process_lcp(char *raw, size_t raw_len) {
     struct ppp_frame frame;
     struct config_request *conf_req;
+    struct terminate_request *term_req;
     u_int8_t code;
 
     frame.address = raw[1];
@@ -99,6 +116,10 @@ int process_lcp(char *raw, size_t raw_len) {
         case 0x01:
             conf_req = (struct config_request *) frame.information;
             process_lcp_configure_request(conf_req);
+            break;
+        case 0x05:
+            term_req = (struct terminate_request *) frame.information;
+            process_lcp_terminate_request(term_req);
             break;
         default:
             fprintf(stderr, "Not yet implemented for code: %d\n", code);
