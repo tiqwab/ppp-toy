@@ -1,4 +1,5 @@
 #include <fcntl.h>
+#include <stddef.h>
 #include <stdio.h>
 #include <stdlib.h>
 #include <string.h>
@@ -25,11 +26,15 @@ struct ppp_frame {
 };
 
 #define CONF_REQ(frame) ((struct config_request *) (frame->information))
+// Length of code, id, length, and data
+#define LCP_LENGTH(r) \
+    ((*(((u_int8_t *) r) + offsetof(struct config_request, pad_len)) << 8) \
+    | (*((((u_int8_t *) r) + offsetof(struct config_request, pad_len)) + 1)))
 
 struct config_request {
     u_int8_t code;
     identifier id;
-    u_int16_t length;
+    u_int16_t pad_len;
     char *options;
 };
 
@@ -70,9 +75,36 @@ void print_frame(FILE *file, char *frame, size_t len) {
 /*
  * Return 0 if success, otherwise -1.
  */
-int process_lcp(char *frame, size_t len) {
-    printf("LCP frame. ");
-    print_frame(stdout, frame, len);
+int process_lcp_configure_request(struct config_request *req) {
+    fprintf(stdout, "This is Configure-Request. code=%d, id=%d, length=%d\n",
+            req->code, req->id, LCP_LENGTH(req));
+    return 0;
+}
+
+/*
+ * Return 0 if success, otherwise -1.
+ */
+int process_lcp(char *raw, size_t raw_len) {
+    struct ppp_frame frame;
+    struct config_request *conf_req;
+    u_int8_t code;
+
+    frame.address = raw[1];
+    frame.control = raw[2];
+    frame.protocol = (((u_int16_t) raw[4]) << 8) | ((u_int16_t) raw[3]);
+    frame.information = &raw[5];
+
+    code = (u_int8_t) frame.information[0];
+    switch (code) {
+        case 0x01:
+            conf_req = (struct config_request *) frame.information;
+            process_lcp_configure_request(conf_req);
+            break;
+        default:
+            fprintf(stderr, "Not yet implemented for code: %d\n", code);
+            return -1;
+    }
+
     return 0;
 }
 
