@@ -5,8 +5,11 @@
 #include <sys/types.h>
 #include <unistd.h>
 
+#include "code.h"
+#include "fcs.h"
+
 #define ESCAPE_SEQ 0x7d
-#define BUF_SIZ 1024
+#define BUF_SIZ 4096
 
 typedef u_int8_t identifier;
 
@@ -51,20 +54,68 @@ struct config_request {
 //     strncpy(req->data, "test", 4);
 // }
 
-void process_frame(char *frame, size_t len) {
-    // just print in hexdecimal format for now
-    size_t i;
+#define IS_FRAME_BYTE(frame, index, expected) \
+    (((unsigned char) frame[index]) == expected)
+#define ISNOT_FRAME_BYTE(frame, index, expected) \
+    (((unsigned char) frame[index]) != expected)
 
-    printf("frame: ");
-    for (i = 0; i < len; i++) {
-        printf("%x ", (unsigned char) frame[i]);
+void print_frame(FILE *file, char *frame, size_t len) {
+    fprintf(file, "frame: ");
+    for (size_t i = 0; i < len; i++) {
+        fprintf(file, "%02x ", (unsigned char) frame[i]);
     }
-    printf("\n");
+    fprintf(file, "\n");
+}
+
+/*
+ * Return 0 if success, otherwise -1.
+ */
+int process_lcp(char *frame, size_t len) {
+    printf("LCP frame. ");
+    print_frame(stdout, frame, len);
+    return 0;
+}
+
+/*
+ * Return 0 if success, otherwise -1.
+ */
+int process_frame(char *orig_frame, size_t len) {
+    char decoded_frame[BUF_SIZ];
+    size_t decoded_len;
+
+    // Decode a frame
+    decode_frame((unsigned char *) decoded_frame, &decoded_len,
+            (unsigned char *) orig_frame, len);
+    printf("decoded frame length: %ld\n", decoded_len);
+    print_frame(stdout, decoded_frame, decoded_len);
+
+    // Check some fields before processing it
+    if (ISNOT_FRAME_BYTE(decoded_frame, 0, 0x7e) // flag
+            || ISNOT_FRAME_BYTE(decoded_frame, decoded_len-1, 0x7e) // flag
+            || ISNOT_FRAME_BYTE(decoded_frame, 1, 0xff) // address
+            || ISNOT_FRAME_BYTE(decoded_frame, 2, 0x03) // control
+            ) {
+        fprintf(stderr, "A frame contains some illegal fields.\n");
+        return -1;
+    }
+
+    // Check FCS
+    if (check_fcs(((unsigned char *) decoded_frame), decoded_len) < 0) {
+        fprintf(stderr, "FCS error\n");
+        return -1;
+    }
+
+    if (IS_FRAME_BYTE(decoded_frame, 3, 0xc0) && IS_FRAME_BYTE(decoded_frame, 4, 0x21)) {
+        // This is LCP.
+        return process_lcp(decoded_frame, decoded_len);
+    }
+
+    return 0;
 }
 
 int main(int argc, char *argv[]) {
     char *device;
-    int fd, n;
+    int fd, n, frame_len;
     char buf[BUF_SIZ];
     char *buf_pos;
 
@@ -120,7 +171,11 @@ int main(int argc, char *argv[]) {
             buf_pos++;
         }
 
-        process_frame(buf, buf_pos - buf + 1);
+        frame_len = buf_pos - buf + 1;
+        if (process_frame(buf, frame_len) < 0) {
+            fprintf(stderr, "Ignore a frame. ");
+            print_frame(stderr, buf, frame_len);
+        }
         buf_pos = buf;
     }
 

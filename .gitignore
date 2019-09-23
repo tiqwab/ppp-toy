@@ -1,4 +1,6 @@
 .vagrant/
+samples/
 ppp
+fcstable_gen
 *.o
 *.s
