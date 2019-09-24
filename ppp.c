@@ -284,7 +284,7 @@ int main(int argc, char *argv[]) {
 
     buf_pos = buf;
 
-    // fixed magic number (0x0a, 0x0b, 0x0c, 0x0d) for now
+    // Send magic number.
     char magic_number_option[6];
     magic_number_option[0] = 0x05;
     magic_number_option[1] = 0x06;
@@ -316,6 +316,8 @@ int main(int argc, char *argv[]) {
             break;
         }
 
+test:
+
         while (1) {
             if (read(fd, buf_pos, 1) < 0) {
                 perror("read");
@@ -336,6 +338,22 @@ int main(int argc, char *argv[]) {
             print_frame(stderr, buf, frame_len);
         }
         buf_pos = buf;
+
+        // Assume that frames are consecutive if the next byte is not 0x7e.
+        if ((n = read(fd, buf_pos, 1)) < 0) {
+            perror("read");
+            exit(EXIT_FAILURE);
+        } else if (n == 0) {
+            goto teardown;
+        }
+        if (*buf_pos != 0x7e) {
+            buf_pos[1] = *buf_pos;
+            *buf_pos = 0x7e;
+            buf_pos += 2;
+        } else {
+            buf_pos++;
+        }
+        goto test;
     }
 
 teardown:
