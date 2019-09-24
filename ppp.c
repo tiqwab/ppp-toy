@@ -62,7 +62,7 @@ struct echo_request {
     identifier id;
     u_int16_t pad_len;
     u_int32_t magic;
-    char *data;
+    // char *data;
 };
 
 struct echo_reply {
@@ -70,7 +70,7 @@ struct echo_reply {
     identifier id;
     u_int16_t pad_len;
     u_int32_t magic;
-    char *data;
+    // char *data;
 };
 
 #define IS_FRAME_BYTE(frame, index, expected) \
@@ -109,8 +109,10 @@ void send_lcp_packet(u_int8_t code, identifier id, u_int16_t len, char *data, si
     raw_buf[idx++] = id;
     raw_buf[idx++] = len >> 8;
     raw_buf[idx++] = (len & 0xff);
-    memcpy(&raw_buf[idx], data, data_len);
-    idx += data_len;
+    if (data != NULL && data_len > 0) {
+        memcpy(&raw_buf[idx], data, data_len);
+        idx += data_len;
+    }
     idx += 2; // FCS
     raw_buf[idx++] = 0x7e; // Flag at end
     calc_fcs((unsigned char *) raw_buf, idx);
@@ -172,12 +174,30 @@ int process_lcp_terminate_request(struct terminate_request *req) {
     return 0;
 }
 
+void create_echo_reply(struct echo_reply *reply, struct echo_request *req) {
+    size_t options_len;
+
+    reply->code = 10;
+    reply->id = req->id;
+    reply->pad_len = req->pad_len;
+    memcpy(&reply->magic, magic_number, sizeof(magic_number));
+}
+
 /*
+ * Check an accepted Echo-Request and send Echo-Reply.
+ *
  * Return 0 if success, otherwise -1.
  */
 int process_lcp_echo_request(struct echo_request *req, int fd) {
+    struct echo_reply reply;
+    size_t packet_len;
+
     fprintf(stdout, "This is Echo-Request. code=%d, id=%d, length=%d\n",
             req->code, req->id, LCP_LENGTH(struct echo_request, req));
+
+    create_echo_reply(&reply, req);
+    packet_len = LCP_LENGTH(struct echo_reply, &reply);
+    send_lcp_packet(reply.code, reply.id, packet_len, (char *) &reply.magic, 4, fd);
     return 0;
 }
 
@@ -217,7 +237,7 @@ int process_lcp(char *raw, size_t raw_len, int fd) {
             echo_req.id = frame.information[1];
             echo_req.pad_len = *((u_int16_t *) &frame.information[2]);
             echo_req.magic = *((u_int32_t *) &frame.information[4]);
-            echo_req.data = ((char *) frame.information) + 8;
+            // echo_req.data = ((char *) frame.information) + 8;
             process_lcp_echo_request(&echo_req, fd);
             break;
         default:
