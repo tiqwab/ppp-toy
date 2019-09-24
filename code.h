@@ -1,3 +1,6 @@
+#ifndef __CODE_H__
+#define __CODE_H__
+
 #include <sys/types.h>
 
 /*
@@ -19,3 +22,5 @@ int encode_frame(unsigned char *dst, size_t *dst_len,
  */
 int decode_frame(unsigned char *dst, size_t *dst_len,
         unsigned char *src, size_t src_len);
+
+#endif /* __CODE_H__ */

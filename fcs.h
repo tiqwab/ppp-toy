@@ -1,3 +1,6 @@
+#ifndef __FCS_H__
+#define __FCS_H__
+
 #include <sys/types.h>
 
 #include "fcstable.h"
@@ -13,3 +16,5 @@ int calc_fcs(unsigned char *frame, size_t len);
  * ref. RFC 1662.
  */
 int check_fcs(unsigned char *frame, size_t len);
+
+#endif /* __FCS_H__ */
