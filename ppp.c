@@ -12,7 +12,7 @@
 #define ESCAPE_SEQ 0x7d
 #define BUF_SIZ 4096
 
-typedef u_int8_t identifier;
+typedef int8_t identifier;
 
 /*
  * Representation of PPP frame.
@@ -52,36 +52,51 @@ struct terminate_request {
     char *data;
 };
 
-// identifier generate_id() {
-//     static identifier id = 0x0;
-//     return ++id;
-// }
-// 
-// struct echo_request {
-//     u_int8_t code;
-//     identifier id;
-//     u_int16_t length;
-//     u_int32_t magic;
-//     char data[4];
-// };
-// 
-// void create_echo_request(struct echo_request *req) {
-//     req->code = 0x09;
-//     req->id = generate_id();
-//     req->length = 4;
-//     req->magic = 0x0000;
-//     strncpy(req->data, "test", 4);
-// }
+identifier generate_id() {
+    static identifier id = 0x0;
+    return ++id;
+}
+
+struct echo_request {
+    u_int8_t code; // 9
+    identifier id;
+    u_int16_t pad_len;
+    u_int32_t magic;
+    char *data;
+};
+
+struct echo_reply {
+    u_int8_t code; // 10
+    identifier id;
+    u_int16_t pad_len;
+    u_int32_t magic;
+    char *data;
+};
 
 #define IS_FRAME_BYTE(frame, index, expected) \
     (((unsigned char) frame[index]) == expected)
 #define ISNOT_FRAME_BYTE(frame, index, expected) \
     (((unsigned char) frame[index]) != expected)
 
+// FIXME
+// magic_number should be zero at first.
+// This is filled after magic-number configuration negotiation is finished.
+static unsigned char magic_number[4] = {0x0a, 0x0b, 0x0c, 0x0d};
+
+/*
+ * Send a LCP packet.
+ *
+ * Generate a new identifier if id < 0.
+ */
 void send_lcp_packet(u_int8_t code, identifier id, u_int16_t len, char *data, size_t data_len, int fd) {
     char raw_buf[BUF_SIZ], encoded_buf[BUF_SIZ];
     size_t encoded_len;
     int idx = 0;
+
+    // Check id
+    if (id < 0) {
+        id = generate_id();
+    }
 
     // Create a frame
 
@@ -160,10 +175,20 @@ int process_lcp_terminate_request(struct terminate_request *req) {
 /*
  * Return 0 if success, otherwise -1.
  */
+int process_lcp_echo_request(struct echo_request *req, int fd) {
+    fprintf(stdout, "This is Echo-Request. code=%d, id=%d, length=%d\n",
+            req->code, req->id, LCP_LENGTH(struct echo_request, req));
+    return 0;
+}
+
+/*
+ * Return 0 if success, otherwise -1.
+ */
 int process_lcp(char *raw, size_t raw_len, int fd) {
     struct ppp_frame frame;
     struct configure_request conf_req;
     struct terminate_request term_req;
+    struct echo_request echo_req;
     u_int8_t code;
 
     frame.address = raw[1];
@@ -186,6 +211,14 @@ int process_lcp(char *raw, size_t raw_len, int fd) {
             term_req.pad_len = *((u_int16_t *) &frame.information[2]);
             term_req.data = ((char *) frame.information) + 4;
             process_lcp_terminate_request(&term_req);
+            break;
+        case 0x09:
+            echo_req.code = code;
+            echo_req.id = frame.information[1];
+            echo_req.pad_len = *((u_int16_t *) &frame.information[2]);
+            echo_req.magic = *((u_int32_t *) &frame.information[4]);
+            echo_req.data = ((char *) frame.information) + 8;
+            process_lcp_echo_request(&echo_req, fd);
             break;
         default:
             fprintf(stderr, "Not yet implemented for code: %d\n", code);
@@ -252,8 +285,11 @@ int main(int argc, char *argv[]) {
     buf_pos = buf;
 
     // fixed magic number (0x0a, 0x0b, 0x0c, 0x0d) for now
-    char magic_number_option[] = {0x05, 0x06, 0x0a, 0x0b, 0x0c, 0x0d};
-    send_lcp_packet(1, 1, 10, magic_number_option, 6, fd);
+    char magic_number_option[6];
+    magic_number_option[0] = 0x05;
+    magic_number_option[1] = 0x06;
+    memcpy(&magic_number_option[2], magic_number, 4);
+    send_lcp_packet(1, -1, 10, magic_number_option, 6, fd);
 
     while (1) {
         char prev_ch = -1, current_ch = -1;
