@@ -8,7 +8,7 @@
 /*
  * RFC 1172 5.1. IP-Addresses.
  *
- * This is deprecated in RFC 1332, but used by pppd.
+ * This is deprecated in RFC 1332.
  */
 struct ipcp_ip_addresses {
     u_int8_t type; // 1
@@ -24,16 +24,6 @@ struct ipcp_ip_address {
     u_int8_t type; // 3
     u_int8_t length;
     unsigned char address[4]; // stored in big-endian order
-};
-
-struct ipcp_packet {
-    u_int8_t code;
-    identifier id;
-    u_int16_t pad_len;
-    union {
-        struct ipcp_ip_addresses ip_addresses;
-        struct ipcp_ip_address ip_address;
-    } s;
 };
 
 /*
