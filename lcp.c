@@ -1,11 +1,7 @@
 #include "lcp.h"
+#include "frame.h"
 
 unsigned char magic_number[4] = {0x0a, 0x0b, 0x0c, 0x0d};
-
-identifier generate_id() {
-    static identifier id = 0x0;
-    return ++id;
-}
 
 void send_lcp_packet(u_int8_t code, identifier id, u_int16_t len, char *data, size_t data_len, int fd) {
     char raw_buf[LCP_BUF_SIZ], encoded_buf[LCP_BUF_SIZ];
@@ -111,6 +107,7 @@ int process_lcp(char *raw, size_t raw_len, int fd) {
     code = (u_int8_t) frame.information[0];
     switch (code) {
         case 0x01:
+            // Configure-Request
             conf_req.code = code;
             conf_req.id = frame.information[1];
             conf_req.pad_len = *((u_int16_t *) &frame.information[2]);
@@ -118,6 +115,7 @@ int process_lcp(char *raw, size_t raw_len, int fd) {
             process_lcp_configure_request(&conf_req, fd);
             break;
         case 0x05:
+            // Terminate-Request
             term_req.code = code;
             term_req.id = frame.information[1];
             term_req.pad_len = *((u_int16_t *) &frame.information[2]);
@@ -125,6 +123,7 @@ int process_lcp(char *raw, size_t raw_len, int fd) {
             process_lcp_terminate_request(&term_req);
             break;
         case 0x09:
+            // Echo-Request
             echo_req.code = code;
             echo_req.id = frame.information[1];
             echo_req.pad_len = *((u_int16_t *) &frame.information[2]);
@@ -133,7 +132,7 @@ int process_lcp(char *raw, size_t raw_len, int fd) {
             process_lcp_echo_request(&echo_req, fd);
             break;
         default:
-            fprintf(stderr, "Not yet implemented for code: %d\n", code);
+            fprintf(stderr, "Not yet implemented for LCP code: %d\n", code);
             return -1;
     }
 

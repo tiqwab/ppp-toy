@@ -8,6 +8,7 @@
 
 #include "code.h"
 #include "fcs.h"
+#include "ipcp.h"
 #include "lcp.h"
 
 #define ESCAPE_SEQ 0x7d
@@ -55,9 +56,14 @@ int process_frame(char *orig_frame, size_t len, int fd) {
         return -1;
     }
 
-    if (IS_FRAME_BYTE(decoded_frame, 3, 0xc0) && IS_FRAME_BYTE(decoded_frame, 4, 0x21)) {
+    if (IS_FRAME_BYTE(decoded_frame, 3, 0xc0)
+            && IS_FRAME_BYTE(decoded_frame, 4, 0x21)) {
         // This is LCP.
         return process_lcp(decoded_frame, decoded_len, fd);
+    } else if (IS_FRAME_BYTE(decoded_frame, 3, 0x80)
+            && IS_FRAME_BYTE(decoded_frame, 4, 0x21)) {
+        // This is IPCP.
+        return process_ipcp(decoded_frame, decoded_len, fd);
     }
 
     return 0;

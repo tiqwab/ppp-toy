@@ -9,10 +9,9 @@
 
 #include "code.h"
 #include "fcs.h"
+#include "id.h"
 
 #define LCP_BUF_SIZ 4096
-
-typedef int8_t identifier;
 
 // Length of code, id, length, and data
 #define LCP_LENGTH(name, r) \
@@ -23,19 +22,6 @@ typedef int8_t identifier;
 // magic_number should be zero at first.
 // This is filled after magic-number configuration negotiation is finished.
 extern unsigned char magic_number[4];
-
-/*
- * Representation of PPP frame.
- * Some fields are omitted such as flag, padding, and FCS.
- *
- * FIXME: Should it be defined here?
- */
-struct ppp_frame {
-    u_int8_t address;
-    u_int8_t control;
-    u_int16_t protocol;
-    char *information;
-};
 
 #define CONF_REQ(frame) ((struct configure_request *) (frame->information))
 
@@ -75,8 +61,6 @@ struct echo_reply {
     u_int32_t magic;
     // char *data;
 };
-
-identifier generate_id();
 
 /*
  * Send a LCP packet.

@@ -2,7 +2,7 @@ CC := gcc
 
 DEFAULT_CFLAGS= -Wall -Wextra
 CFLAGS := $(DEFAULT_CFLAGS) $(CFLAGS)
-OBJS := lcp.o fcs.o code.o fcstable.o
+OBJS := lcp.o ipcp.o fcs.o code.o fcstable.o id.o
 EXEC := ppp
 
 .PHONY: default clean
