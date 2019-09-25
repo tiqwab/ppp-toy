@@ -5,6 +5,8 @@
 
 #include "id.h"
 
+#define IPCP_BUF_SIZ 4096
+
 /*
  * RFC 1172 5.1. IP-Addresses.
  *
@@ -25,6 +27,8 @@ struct ipcp_ip_address {
     u_int8_t length;
     unsigned char address[4]; // stored in big-endian order
 };
+
+char *generate_ip();
 
 /*
  * Return 0 if success, otherwise -1.

@@ -13,7 +13,7 @@ int encode_frame(unsigned char *dst, size_t *dst_len,
 
     // Skip flags at the beginning and the end of the frame.
     for ( ; i < src_len - 1; i++) {
-        if (src[i] == 0x7e || src[i] == 0x7d || src[i] < 0x1f) {
+        if (src[i] == 0x7e || src[i] == 0x7d || src[i] <= 0x1f) {
             dst[j++] = 0x7d;
             dst[j++] = src[i] ^ 0x20;
         } else {
