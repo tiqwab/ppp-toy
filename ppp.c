@@ -1,3 +1,4 @@
+#include <errno.h>
 #include <fcntl.h>
 #include <stddef.h>
 #include <stdio.h>
@@ -10,6 +11,7 @@
 #include "fcs.h"
 #include "ipcp.h"
 #include "lcp.h"
+#include "tty.h"
 
 #define ESCAPE_SEQ 0x7d
 #define BUF_SIZ 4096
@@ -73,7 +75,6 @@ int main(int argc, char *argv[]) {
     char *device;
     int fd, n, frame_len;
     char buf[BUF_SIZ];
-    char *buf_pos;
 
     if (argc != 2) {
         fprintf(stderr, "Usage: %s DEV\n", argv[0]);
@@ -81,12 +82,9 @@ int main(int argc, char *argv[]) {
     }
     device = argv[1];
 
-    if ((fd = open(device, O_RDWR)) < 0) {
-        perror("open");
+    if ((fd = setup_tty_and_ppp_if(device)) < 0) {
         exit(EXIT_FAILURE);
     }
-
-    buf_pos = buf;
 
     // Send magic number.
     char magic_number_option[6];
@@ -96,71 +94,23 @@ int main(int argc, char *argv[]) {
     send_lcp_packet(1, -1, 10, magic_number_option, 6, fd);
 
     while (1) {
-        char prev_ch = -1, current_ch = -1;
-        char *ptr;
-
-        while (1) {
-            if ((n = read(fd, buf_pos, 1)) < 0) {
-                perror("read");
-                exit(EXIT_FAILURE);
-            } else if (n == 0) {
-                goto teardown;
+        if ((n = read(fd, buf, BUF_SIZ)) < 0) {
+            if (errno == EINTR) {
+                break;
             }
-
-            if ((current_ch = *buf_pos) != 0x7e) {
-                prev_ch = current_ch;
-                continue;
-            }
-            if (prev_ch == ESCAPE_SEQ) {
-                prev_ch = current_ch;
-                continue;
-            }
-
-            *buf_pos++ = current_ch; // 0x7e
+            perror("read");
+            exit(EXIT_FAILURE);
+        } else if (n == 0) {
             break;
         }
 
-test:
-
-        while (1) {
-            if (read(fd, buf_pos, 1) < 0) {
-                perror("read");
-                exit(EXIT_FAILURE);
-            }
-            if (*buf_pos == 0x7e) {
-                ptr = buf_pos - 1;
-                if (*ptr != ESCAPE_SEQ) {
-                    break;
-                }
-            }
-            buf_pos++;
-        }
-
-        frame_len = buf_pos - buf + 1;
+        frame_len = n;
         if (process_frame(buf, frame_len, fd) < 0) {
             fprintf(stderr, "Ignore a frame. ");
             print_frame(stderr, buf, frame_len);
         }
-        buf_pos = buf;
-
-        // Assume that frames are consecutive if the next byte is not 0x7e.
-        if ((n = read(fd, buf_pos, 1)) < 0) {
-            perror("read");
-            exit(EXIT_FAILURE);
-        } else if (n == 0) {
-            goto teardown;
-        }
-        if (*buf_pos != 0x7e) {
-            buf_pos[1] = *buf_pos;
-            *buf_pos = 0x7e;
-            buf_pos += 2;
-        } else {
-            buf_pos++;
-        }
-        goto test;
     }
 
-teardown:
     if (close(fd) < 0) {
         perror("close");
         exit(EXIT_FAILURE);
