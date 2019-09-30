@@ -1,11 +1,17 @@
 #ifndef __IPCP_H__
 #define __IPCP_H__
 
+#include <stdbool.h>
 #include <sys/types.h>
 
 #include "id.h"
 
 #define IPCP_BUF_SIZ 4096
+#define IPCP_ADDRESS_LEN 32
+
+extern char src_addr[IPCP_ADDRESS_LEN];
+extern char dst_addr[IPCP_ADDRESS_LEN];
+extern bool ipcp_negotiated;
 
 /*
  * RFC 1172 5.1. IP-Addresses.

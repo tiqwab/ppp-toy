@@ -5,6 +5,10 @@
 #include "ipcp.h"
 #include "lcp.h"
 
+char src_addr[IPCP_ADDRESS_LEN];
+char dst_addr[IPCP_ADDRESS_LEN];
+bool ipcp_negotiated = false;
+
 char *generate_ip() {
     // Return the same IP for now.
     static char ip[4] = {192, 168, 11, 4};
@@ -74,18 +78,28 @@ int process_ipcp_ip_addresses(struct ipcp_ip_addresses *req, struct configure_re
 int process_ipcp_ip_address(struct ipcp_ip_address *req, struct configure_request *conf_req_received, int fd) {
     struct configure_ack ack;
     char options[IPCP_BUF_SIZ];
+    char *addr;
     size_t packet_len, options_len;
+
+    snprintf(dst_addr, IPCP_ADDRESS_LEN, "%d.%d.%d.%d",
+            (unsigned char) req->address[0], (unsigned char) req->address[1],
+            (unsigned char) req->address[2], (unsigned char) req->address[3]);
 
     fprintf(stdout,
             "This is IPCP IP-Address. type=%d, length=%d, "
-            "address=%d.%d.%d.%d\n",
-            req->type, req->length, req->address[0],
-            req->address[1], req->address[2], req->address[3]);
+            "address=%s\n",
+            req->type, req->length, dst_addr);
+
+    // Set source IP
+    addr = generate_ip();
+    snprintf(src_addr, IPCP_ADDRESS_LEN, "%d.%d.%d.%d",
+            (unsigned char) addr[0], (unsigned char) addr[1],
+            (unsigned char) addr[2], (unsigned char) addr[3]);
 
     // Send my IP to peer.
     options[0] = 3;
     options[1] = 6;
-    memcpy(&options[2], generate_ip(), 4);
+    memcpy(&options[2], addr, 4);
     packet_len = 10;
     options_len = 6;
     send_ipcp_packet(1, -1, packet_len, options, options_len, fd);
@@ -97,6 +111,9 @@ int process_ipcp_ip_address(struct ipcp_ip_address *req, struct configure_reques
     options_len = packet_len - 4;
     send_ipcp_packet(ack.code, ack.id, packet_len, options,
             options_len, fd);
+
+    ipcp_negotiated = true;
+
     return 0;
 }
 

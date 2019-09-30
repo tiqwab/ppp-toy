@@ -9,6 +9,7 @@
 
 #include "code.h"
 #include "fcs.h"
+#include "if.h"
 #include "ipcp.h"
 #include "lcp.h"
 #include "tty.h"
@@ -75,6 +76,7 @@ int main(int argc, char *argv[]) {
     char *device;
     int fd, n, frame_len;
     char buf[BUF_SIZ];
+    bool ppp_device_setup = false;
 
     if (argc != 2) {
         fprintf(stderr, "Usage: %s DEV\n", argv[0]);
@@ -108,6 +110,14 @@ int main(int argc, char *argv[]) {
         if (process_frame(buf, frame_len, fd) < 0) {
             fprintf(stderr, "Ignore a frame. ");
             print_frame(stderr, buf, frame_len);
+        }
+
+        if (ipcp_negotiated && !ppp_device_setup) {
+            if (setup_ppp_if(ppp_device_name, src_addr, dst_addr) < 0) {
+                fprintf(stderr, "Failed in setup_ppp_if\n");
+                exit(EXIT_FAILURE);
+            }
+            ppp_device_setup = true;
         }
     }
 

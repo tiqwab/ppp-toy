@@ -14,7 +14,10 @@
 
 static int tty_fd = -1;
 static int ppp_fd = -1;
+static int ppp_if_unit = -1;
 static int dev_ppp_fd = -1;
+
+char ppp_device_name[PPP_DEVICE_NAME_SIZE];
 
 static void print_error(char *func_name, char *msg) {
     fprintf(stderr, "%s. ", msg);
@@ -31,13 +34,11 @@ static void intr_sigint(int signum) {
     }
 }
 
-
 /*
  * Return a file descriptor to write and read ppp frame or -1 if error.
  */
 int setup_tty_and_ppp_if(char *tty_path) {
     int ppp_discipline;
-    int if_unit = -1;
     int ch_index = -1;
     struct sigaction sa;
 
@@ -91,14 +92,15 @@ int setup_tty_and_ppp_if(char *tty_path) {
         return -1;
     }
 
-    if (ioctl(dev_ppp_fd, PPPIOCNEWUNIT, &if_unit) < 0) {
+    if (ioctl(dev_ppp_fd, PPPIOCNEWUNIT, &ppp_if_unit) < 0) {
         print_error("ioctl", "Failed in ioctl with PPPIOCNEWUNIT");
         return -1;
     }
-    printf("if_unit: %d\n", if_unit);
+    snprintf(ppp_device_name, PPP_DEVICE_NAME_SIZE, "ppp%d", ppp_if_unit);
+    printf("if_unit: %d\n", ppp_if_unit);
 
     // (5) Attach an channel to PPP unit.
-    if (ioctl(ppp_fd, PPPIOCCONNECT, &if_unit) < 0) {
+    if (ioctl(ppp_fd, PPPIOCCONNECT, &ppp_if_unit) < 0) {
         print_error("ioctl", "Failed in ioctl with PPPIOCCONNECT");
         return -1;
     }
