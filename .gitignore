@@ -2,5 +2,7 @@
 samples/
 ppp
 fcstable_gen
+misc/ppp_dev_sample
+misc/setup_ppp_interface
 *.o
 *.s
